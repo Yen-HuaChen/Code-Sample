@@ -1,0 +1,131 @@
+---
+title: "523 Final Project - Indeed Job Search"
+author: "Yumemechi Fujita, Yen Hua Cheng, Eden Huang, Faustine Li, Shoaji Li"
+output: html_document
+---
+
+<br><br>
+
+##1. Introduction
+
+<br>
+
+Most of the team members of the Standard Deviants are statistics students entering the workforce after graduation. In the increasingly digidal and data driven job market, we are curious about the locations of those "data" jobs (either business analytics, data analytics, or data scientist) and what skillsets are valued by employees. For the STA 523 Final Project, we decided to create a Shiny App that allows the user to dynamically select a "cluster" of data-related job (described in detatils in later sections) and a home state. All the job search data were web scraped from Indeed.com using `jobbR` package. The output of the app will be:
+
+1. a table that shows the Top 3 job titles and employees for the selected cluster, 
+2. a word cloud detailing the frequency of words appearing for the selected cluster and state on Indeed.com,
+3. Google Map with labels as the location of job search results with links from Indeed.com
+
+We give credit to several useful online tutorials and packages that helped us throughout the project. Examples of important references include jobbR Package[^1], Shiny Document[^2], Tom Liptrot's GitHub page[^3], ggmap in R[^4] and Text Mining in R[^5].
+
+This image is an outline of our process:
+
+![](flow.png)
+
+<br>
+
+
+##2. Methods and Functions
+
+<br>
+
+#### 2.1 Webscraping Indeed and Job Description:
+
+We utilized the `jobSearch` function in the `jobR` package to scrap information from "indeed.com". The function took several arguments: publisher, query, country, start, location, and limit and generated a data frame that contains information about jobs such as job title, location, description and job links etc. 
+
+One shorage of this function was that we could not specify the number of entries to be generated unless the number is less than 25. Our solution was to scrap multiple times and concatenate the dataframes. For example, if we were to generate 120 jobs, we scrapped 5 times with the first four times generating 25 entries each and the last time generating 20 entries. Then we concatenate the 5 dataframes into a big data frame of 120 rows.
+
+We also add a column "job.descript", which contains the full job descriptions for the jobs. To do this, we read the html links in dataframe created previously and grab the job descriptions under the "#job_summary" node.
+
+<br>
+
+#### 2.2 Text Cleaning:
+
+After we obtained the raw job decriptions from Indeed, we needed to clean the results. We heavily utilized the text-mining package `tm`. It converted our dataframe of job descriptions into a "corpus" object. From there transformations can be done over that corpus object including removing stop words, punctuation, extra white-space, etc. Many of these steps are aggregated in the `clean_corpus` function that we wrote. Stemming the documents is also an important step. Using the `snowballC` package allowed words related by word stem to be condensed.
+
+Finally the cleaned words were used to create a document term matrix (DTM). The idea is that documents are broken into individual words. The rows are each document in the corpus and each column is a word. Each element is the count of that word in that document. Because a single document only has a small subset of words, the matrix is often sparse. Thankfully, the `tm` package has a `dtm` class that stores the document term matrix in a memory-efficient way. 
+
+<br>
+
+#### 2.3 Clustering Jobs with LDA:
+
+We were interested in how jobs are related to one another. Because the types of job are not know apriori, clustering jobs is considered a *unsupervised learning* problem. While there are many clustering algorithms that could have been suitable, we chose Latent Dirchlet Allocation because of its previous use in topic modeling. 
+
+LDA is a genertive model. The model assumes that for each document in a corpus, $d_n$.
+
+1. $\theta \sim Dir(\alpha)$
+
+2. For each word in $d_n$:
+  
+    a. Sample a topic, $z_i \sim Multinomial(\theta)$
+  
+    b. Sample a word, $w_n \sim p(words|z_i, \beta)$
+
+In other words, the LDA model assumes that a document is a collection of words coming from a mixture of topics. The variables $\alpha$ and $\beta$ are prior parameters for the model. The topic variable is not directly observed, therefore acts as a *latent* variable. 
+
+To assign a document a mixture of topics, we need to know the probability that the words in that document were generated using the model, $p(d_n |\alpha, \beta)$. We can find this value using Baye's Rule, but in general this posterior density is difficult to calculate. However there are many techniques such as Gibbs sampling to estimate the posterior. The final outcome is that each document is a assigned a mixture of topics, 30% from topic 1, 40% from topic 2, and so forth. Although topic assignment is probabalistic, to visualize similar jobs we grouped jobs based on the topic with the highest contribution. 
+
+The R package `topicmodels` implements latent dirchlet allocation. The input to `LDA` is a number of clusters and a document term matrix. The default method for training the model is variational E-M, a technique for posterior inference. The output is a trained model in where each document has cluster assignments. Training on the roughly 1000 documents we scraped from Indeed took 1-2 minutes. 
+
+<br>
+
+#### 2.4 Word Cloud and Text Mining:
+
+In the `word cloud()` function, we defined some common words that are not related to job skills (e.g: one, job, new, will, work etc.) as `removed_dictionary`. Then, we used `tm_map`, `removeWords` functions to remove those unrelated words. Next we used `wordcloud()` to plot a word cloud. The words were plotted in decreasing frequency in the word cloud. See the comments in the functions for more details.
+
+<br>
+
+#### 2.5 job_map() function:
+
+The function of job map is to visualize geographically the jobs of each cluster for all states. Users may click the jobs and enter the Indeed.com websites through the urls. Also, the job map researves the google map feature such as zoom in/out, street view and satelite view.
+
+To achieve this goal, we created a `map_jobs` function, which took a data frame. In our project, this function takes the data frame containing information about the jobs in the *category* and *state* users select in the sidebar. After taking in the job data frame, the `map_jobs` function first generates lattitudes and longitudes for the job location. To do this, we created a data frame called `geo` that contains lattitudes and longitudes for over 25,000 cities in U.S and join the job data frame with it according to the city name. The code that generates the data frame can be found in the "Webscraping for mapping" section in "preprocessing.R".
+
+Next we started plotting the jobs on our gvisMap. We first filtered out jobs such that the locations could not be matched by the `geo` dataframe. Then it created another column called "tip" to store the urls for the jobs whose locations are available. Finally, we plotted the jobs on the `gvisMap` by using the `gvisMap` function in the `ggmap` package.
+
+
+<br>
+
+
+##3. Shiny App
+
+<br>
+
+For the Shiny App, once a user inputs a job cluster and a state of interest, our app will display a word cloud and a Google Map with labels of job search results. It will also show a table of common job descriptions and companies for each selected cluster using the training set of our data. This table provides a better explantion of which jobs are associated with each cluster. 
+
+The app is composed of two parts: `ui` and `server`. `ui` takes in two inputs (cluster and state) from user and `server` calls the functions to run the LDA algorithm, output the table, generate word cloud and display the job search results on Google Map. A reactive feature guarantees that the result would be updated when the user changes the input state or cluster. Please refer to `app.R` for stepwise comments about the Shiny App. 
+
+We also picked a theme for our Shiny App dashboard and changed the font of the application title. Further polishing includes the addition of a picture of our duke statistics department, acknowledgements and decoration photos with links to the STA 523 course website and Indeed.com. 
+
+<br>
+
+
+##4. Discussion and Conclusion
+
+<br>
+
+In conclusion, we created a Shiny app that explores clusters of jobs using data from Indeed. We webscraped the data, cleaned and transformed the data and displayed the cluster information with a word cloud and map of jobs. 
+
+The biggest challenge in the word cloud is to improve the accuracy of keyword match in the process of web text mining. Since employers write the job posting on their own, the contents of postings vary considerably in format with organizations. In our project, most of the text mining is completed using `tm` library. Further studies should consider more alternatives to improve the text matching rate.      
+
+We could also improve the Shiny App by allowing multiple selections of clusters and states, since some user might be interested in job search in a broader area. Another possible future inclusion to our app is the "search engine". Allowing user to type in some keywords of jobs would greatly improve the user experience of the app. 
+
+
+<br>
+
+
+
+### Reference
+
+[^1]: jobbR Package https://github.com/dashee87/jobbR
+
+[^2]: Shiny Document https://shiny.rstudio.com/reference/shiny/latest/
+
+[^3]: Tom Liptrot's GitHub page https://github.com/tomliptrot
+
+[^4]: Text Mining in R http://onepager.togaware.com/TextMiningO.pdf
+
+[^5]: ggmap in R https://cran.r-project.org/web/packages/ggmap/ggmap.pdf
+
+
+
