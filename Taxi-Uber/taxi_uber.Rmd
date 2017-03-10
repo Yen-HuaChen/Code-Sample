@@ -1,5 +1,5 @@
 ---
-title: 'Team4 - HW7'
+title: 'Taxi-Uber'
 output: html_document
 ---
 
@@ -15,7 +15,7 @@ opts_chunk$set(cache = TRUE, tidy = TRUE, message = FALSE, warning = FALSE, tidy
 
 ### Task 1
 
-In Task1, we are asked to provide: (1) yellow and green cab pickups, (2) yellow and green cab dropoffs and (3) uber pickups. We process the data using package `sparklyr`.
+In Task1, we provided: (1) yellow and green cab pickups, (2) yellow and green cab dropoffs and (3) uber pickups. We process the data using package `sparklyr`.
 
 First, after connecting to spark, we obtain the data by using `spark_read_csv`. Second, we use multiple functions to do the data cleaning. Function `fix_names` converts the column names from capital letters into lower letters. Function `filter_location` and `uber_filter` set the latitudes and longitudes which depicts the shape of New York City for pick up and drop off data. Then, we pick the necessary columns from the filtered data frame. Functions `pickup_location_count` and `dropoff_location_count` count the number of pick ups and drop offs for cabs and uber. 
 
@@ -55,7 +55,7 @@ According to the **uber pickup** also provides the evidence of previous assumpti
 
 ### Task 2
 
-In task 2, we are asked to add **rush hour** to the data frame in task 1. **Rush hour** is required to indicate whether either the pickup or dropoff occured during the morning rush hours (7 - 10 am).
+In task 2, we added **rush hour** to the data frame in task 1. **Rush hour** is required to indicate whether either the pickup or dropoff occured during the morning rush hours (7 - 10 am).
 
 First, we construct a function `add_rush` to form the column of **rush**: extract the time of pickup and dropoff and obtain the hour of pickup and dropoff using the function `hour`;  determine the value of **rush** via `ifelse`—it is TRUE when either the pickup or dropoff occur from 7 am to 10 am or FALSE if not. 
 
