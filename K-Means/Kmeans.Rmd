@@ -1,0 +1,57 @@
+---
+title: 'K-Means'
+output: 
+  pdf_document:
+    fig_caption: yes
+---
+
+```{r warning=FALSE}
+library(png)
+raccoon = readPNG(source = "~/raccoon.png", native = FALSE)
+
+# 3.a K-means function
+k.mean = function(image, k) {
+  n.row = nrow(image)
+  n.col = ncol(image)
+  
+  # old cluster (initial with 0)
+  x = as.matrix(rep(0, k))
+  # new cluster (initial sample from image)
+  n.x = as.matrix(sample(image, k))
+  # distance matrix which stores the minimum distance between each point and the optimal cluster
+  # initial with 2 since the range of the image is between 0 and 1
+  d = matrix(2, nrow = n.row, ncol = n.col)
+  # cluster matrix which store the number of closest cluster of specific point
+  cluster = matrix(1, nrow = n.row, ncol = n.col)
+  
+  n = 1
+  while (n.x != x) {
+    x = n.x
+    for (i in 1:k) {
+      # cluster matrix: update if new distance of new cluster is smaller than the former distance
+      cluster = ifelse(d > (image - n.x[i, ])^2, i, cluster)
+      # distance matrix: update if new distance of new cluster is smaller than the former distance
+      d = ifelse(d > (image - n.x[i, ])^2, (image - n.x[i, ])^2, d)
+    }
+    for (i in 1:k) {
+      # compute the new mean of each cluster (obtain new center)
+      n.x[i, ] = mean(image[which(cluster == i)])
+    }
+    # record the iteration
+    n = n+1
+  }
+  n.image = matrix(NA, nrow = n.row, ncol = n.col)
+  # output the new image
+  for (i in 1:k) {
+    n.image[which(cluster == i)] = n.x[i, ]
+  }
+  return(n.image)
+}
+
+# 3.b K-means cluster with k=2 & k=4 & k=8
+
+raccoon2 = k.mean(raccoon, 2)
+raccoon4 = k.mean(raccoon, 4)
+raccoon8 = k.mean(raccoon, 8)
+
+```
