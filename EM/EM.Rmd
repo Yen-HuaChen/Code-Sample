@@ -1,0 +1,57 @@
+---
+title: 'Coin-toss'
+output: pdf_document
+---
+
+```{r}
+m = 5 # sample
+n = 100 # toss
+# Given probabilities
+pi_a = 0.8
+pi_b = 0.35
+coin_a <- matrix(NA, nrow = m, ncol = n)
+coin_b <- matrix(NA, nrow = m, ncol = n)
+# Simulate toss sample by given probabilities
+for (i in 1:m) {
+  coin_a[i, ] = rbinom(n, size = 1, prob = pi_a)
+  coin_b[i, ] = rbinom(n, size = 1, prob = pi_b)
+}
+# Randomly select sample from coin A or B
+sample_coin = matrix(sample(c(0,1), replace=TRUE, size = m))
+coin = rbind(coin_a[which(sample_coin == 1), ], coin_b[which(sample_coin == 0), ])
+# Initial parameter
+npi_a = runif(1)
+npi_b = runif(1)
+opi_a = 0
+opi_b = 0
+n = 0
+while (npi_a != opi_a & npi_b != opi_b) {
+  opi_a = npi_a
+  opi_b = npi_b
+  sim_coin_a = matrix(NA, nrow = m, ncol = 2)
+  sim_coin_b = matrix(NA, nrow = m, ncol = 2)
+  # E-step: calculate probability distributions over possible completions
+  for (i in 1:m) {
+    nom_a = (npi_a^sum(coin[i, ] == 1))*((1-npi_a)^(n-sum(coin[i, ] == 1)))
+    nom_b = (npi_b^sum(coin[i, ] == 1))*((1-npi_b)^(n-sum(coin[i, ] == 1)))
+    denom = nom_a + nom_b
+    theta_a = nom_a/denom
+    theta_b = nom_b/denom
+    sim_coin_a[i, ] = (c(theta_a * sum(coin[i, ] == 1), theta_a * sum(coin[i, ] == 0)))
+    sim_coin_b[i, ] = (c(theta_b * sum(coin[i, ] == 1), theta_b * sum(coin[i, ] == 0)))
+  }
+# M-step: update values for parameters given current distribution
+npi_a = sum(sim_coin_a[, 1])/(sum(sim_coin_a[, 1]) + sum(sim_coin_a[, 2]))
+npi_b = sum(sim_coin_b[, 1])/(sum(sim_coin_b[, 1]) + sum(sim_coin_b[, 2]))
+n = n + 1
+}
+```
+There will be 4 different initial statuses:
+
+1. Initial with probabilities $\theta^{(0)}_{A}>\theta^{(0)}_{B}$: we'll derive $\theta^{(*)}_{A}>\theta^{(*)}_{B}$ which meets the setting in the problem set -- $\theta_{A}=0.8$ and $\theta_{B}=0.35$.
+
+2. Initial with probabilities $\theta^{(0)}_{A}<\theta^{(0)}_{B}$: we'll derive $\theta^{(*)}_{A}<\theta^{(*)}_{B}$ which actually obtains the same result as situation (1). The only difference is the value swaped.
+
+3. Initial with the probabilities $\theta^{(0)}_{A}=\theta^{(0)}_{B}$: this means the coin A and coin B are actually the same.
+
+4. Initial with the coin sample drawn from same coin: we'll derive same probabilities of $\theta^{(*)}_{A}$ and $\theta^{(*)}_{B}$.
