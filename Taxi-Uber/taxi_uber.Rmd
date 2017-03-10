@@ -1,0 +1,86 @@
+---
+title: 'Team4 - HW7'
+output: html_document
+---
+
+```{r, warning=FALSE, message=FALSE, hide = TRUE}
+# This RMD file can geenrate all the plots by itself within the repository
+# This piece of code include certain libraries and save running time when re-runned
+library(knitr)
+library(formatR)
+library(ggplot2)
+# chunk settings
+opts_chunk$set(cache = TRUE, tidy = TRUE, message = FALSE, warning = FALSE, tidy.opts = list(width.cutoff = 70))
+```
+
+### Task 1
+
+In Task1, we are asked to provide: (1) yellow and green cab pickups, (2) yellow and green cab dropoffs and (3) uber pickups. We process the data using package `sparklyr`.
+
+First, after connecting to spark, we obtain the data by using `spark_read_csv`. Second, we use multiple functions to do the data cleaning. Function `fix_names` converts the column names from capital letters into lower letters. Function `filter_location` and `uber_filter` set the latitudes and longitudes which depicts the shape of New York City for pick up and drop off data. Then, we pick the necessary columns from the filtered data frame. Functions `pickup_location_count` and `dropoff_location_count` count the number of pick ups and drop offs for cabs and uber. 
+
+**Mapping between the counts and your alpha value in the plot**: After trying out several possible mapping functions between counts and alpha values, we find the log function looks the best on the plot.
+
+```{r}
+load("taxi_pickup.RData")
+load("taxi_dropoff.RData")
+load("uber_pickup.RData")
+
+#pickup
+ggplot(taxi_pickup, aes(x = pickup_lat, y = pickup_long, col = taxi, alpha = log(pickup_count))) + 
+  geom_point(size = 0.05) +
+  scale_color_manual(values = c("#009E73", "#F0E442")) +
+  labs(x = "Pickup Latitude", y = "Pickup Longitude")
+
+#dropoff
+ggplot(taxi_dropoff, aes(x = dropoff_lat, y = dropoff_long, col = taxi, 
+                         alpha = log(dropoff_count))) +
+  geom_point(size = 0.1) +
+  scale_color_manual(values = c("#009E73", "#F0E442")) +
+  labs(x = "Dropoff Latitude", y = "Dropoff Longitude")
+
+#uber 
+ggplot(uber_pickup, aes(x = lati, y = longi, alpha = log(pickup_count))) +
+  geom_point(size = 0.05, color = "black") + 
+  labs(x = "Pickup Latitude", y = "Pickup Longitude")
+
+```
+
+
+According to the **pickup** figure, the yellow cabs concentrate in Manhattan area while the green cabs allocate outside the Manhattan area, such as Brooklyn, Queens and Bronx. From New York City Taxi & Limousine Commission website (http://www.nyc.gov/html/tlc/html/passenger/shl_passenger.shtml), the yellow cabs and green cabs are assigned to pick up passengers in Manhattan area and the area excluding Manhattan and airports respectively.
+
+According to the **dropoff** figure, both drop off locations of yellow and green cabs are more spread out than in the pick-up plot This is reasonable since the cabs are assigned to pick up passgengers in specific location while they might drop them off anywhere. Moreover, the distribution of yellow cabs is more sparse than green cabs (the yellow points overlay more area on the plot), the possible reasons might be: (1) the number of yellow cabs are more than green cabs; as a result, when dropping-off, the yellow points are distributed to whole New York City. (2) The passengers in Manhattan area tend to take taxi to places further. (3) The yellow points are plotted after green point; as a result, will cover over green points.
+
+According to the **uber pickup** also provides the evidence of previous assumptions. The pick-up location centralize in Manhattan area, which means there are more passengers who need a ride in Manhattan area. The uber services make up of the lack of the number of yellow cabs or even partially replace the yellow cabs in Manhattan area.
+
+### Task 2
+
+In task 2, we are asked to add **rush hour** to the data frame in task 1. **Rush hour** is required to indicate whether either the pickup or dropoff occured during the morning rush hours (7 - 10 am).
+
+First, we construct a function `add_rush` to form the column of **rush**: extract the time of pickup and dropoff and obtain the hour of pickup and dropoff using the function `hour`;  determine the value of **rush** via `ifelse`—it is TRUE when either the pickup or dropoff occur from 7 am to 10 am or FALSE if not. 
+
+Second, apply the function `add_rush` to **green** and **yellow** respectively, and return the data adding **rush**, for example, **green_rush** is **green** combined with **rush** equal to TRUE and **green_nonrush** is  **green** combined with **rush** equal to FALSE. Then we add the number of pick ups and drop offs to **green_rush** and **yellow_rush**, and combine them to return a **pickup_rush**. We perform the same steps with respective to **dropoff** and **nonrush** in terms of the yellow and green cabs. For uber, the idea is similar, except that we need to deal with the **rush** of uber differently. We obtain the regular expression of pickup hour via `regexp_extract`, determine the value of **rush** and save it to **uber_pichupHour**. Then we filter the **rush** equal to TRUE in **uber_pickupHour**, group it by latitude and longitude, summarize the number of pick up in rush hours and save the result in **uber_pickup_rush**. We do the same to get **uber_pickup_nonrush** except selecting the **rush** equal to FALSE. 
+
+The resulting six data frames are sufficent to plot 6 the designated plots. However, for the convenience of comparison, we combine them to construct a data frame to be used in ggplot. In specific, we add the columns of time (rush or non-rush) and type (dropoff or pickup) to the corresponding lists and combine the rush and non_rush together and return to **drop_off** and **pick_up**. We process the similar steps to uber except adding another column to inform the taxi is uber. Then we combine pick_up, drop_off and uber_pickup and save them to  **all**. 
+
+Finally, we use the result **all** to plot the rush and non_rush results in six graphs.
+
+```{r}
+load("all.RData")
+
+ggplot(all, aes(x = lat, y = long, color = taxi, alpha = log(count))) +
+  geom_point(size = 0.05) + 
+  scale_colour_manual(values=c("#009E73","#000000","#F0E442")) + 
+  theme_bw() +
+  facet_grid(type ~ time, scales="free") +
+  ylab("")
+```
+
+
+After comparing the three figures of rush and those of non-rush, we  find that the geographic range of both taxis and uber travelled in non-rush hours is much wider than that in rush hours. This is mainly because in the rush hours, passengers usually travel from home to their offices or from office to home (the places are almost fixed); while in the non-rush hours, passengers might travel from somewhere (inside the area assigned to cabs) to various destinations.
+
+For yellow cabs, they pick up passengers in the rush hours mainly in Manhattan or very close to Manhattan; however, in the non-rush hours, they pick up passengers not only in Manhattan but also the areas in Queens and Brooklyn. This indicates that they do not have full reservations in Manhatten during non-rush hours. Furthermore, dropping off locations for yellow cabs in the rush hours not only concentrate in Manhattan but also places nearby  Manhatan. Nevertheless, in the non-rush hours, the distribution of yellow cabs  dropping off locations spreads out in the whole city.
+
+As for green cabs, they enerally travel more broadly than yellow cabs in both rush hours and non-rush hours. Picking up locations in the rush hours concentrate outside Manhattan, such as Brooklyn, Queens and Bronx ( the reason has been explained above in task 1); while in the non-rush hours, green cab drivers pick up passengers in places more evenly spreaded outside Manhattan, and drop people off in the whole city.
+
+For uber, pick-up location concentrate in Manhattan area in the rush hours; and it spreads out more in the non-rush hours.
